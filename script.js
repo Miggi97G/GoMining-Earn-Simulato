@@ -730,12 +730,15 @@ else window.tailwind = { config: twConfig };
       };
     });
 
-    // Reset auf Ausgangswerte
-    $('resetBaselineBtn').onclick = () => {
-      Object.assign(state, BASELINE);
-      saveState();
-      renderAll();
-    };
+    // Reset auf Ausgangswerte (falls vorhanden)
+    const resetBtn = $('resetBaselineBtn');
+    if (resetBtn) {
+      resetBtn.onclick = () => {
+        Object.assign(state, BASELINE);
+        saveState();
+        renderAll();
+      };
+    }
 
     initChart();
     renderAll();
