@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GoMining BTC-Mining Simulator &amp; Chart-Rechner</title>
+
+  <!-- Inter Schriftart für saubere, moderne Finanz-Typografie -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js via CDN für den interaktiven Kurs-Verlauf -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Eigene Stylesheets -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Simulator-Skript (Tailwind-Konfiguration & Rechner-Logik) -->
+  <script src="script.js"></script>
+</head>
+<body class="bg-slatebg text-slate-100 font-sans min-h-screen antialiased selection:bg-btc/30 selection:text-btc">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+    <!-- Kopfbereich / Titel & Basis-Hinweis -->
+    <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-6 border-b border-borderdim">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-btc/10 text-btc border border-btc/25 mb-2">
+          <span>GoMining Modellrechner</span>
+          <span>•</span>
+          <span>Basis: 55.48 TH / 12 W/TH / 3.9 % Rabatt</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-white">
+          BTC-Mining Simulator &amp; Chart-Rechner
+        </h1>
+        <p class="text-sm text-slate-400 mt-1 max-w-3xl">
+          Simuliere deine täglichen und monatlichen Netto-Erträge in Sats, BTC, USD und CHF bei variierendem BTC-Kurs, Wartungsrabatt und Netzwerk-Difficulty.
+        </p>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cardbg border border-borderdim text-xs text-slate-400">
+          <span class="w-1.5 h-1.5 rounded-full bg-emeraldacc animate-pulse"></span>
+          <span>Auto-Save aktiv</span>
+        </span>
+        <button
+          id="resetBaselineBtn"
+          type="button"
+          class="px-4 py-2.5 rounded-xl text-sm font-medium bg-cardbg hover:bg-cardhover text-slate-200 border border-borderdim transition cursor-pointer"
+        >
+          Auf Screenshot-Basis zurücksetzen
+        </button>
+      </div>
+    </header>
+
+    <!-- Status- / Warnmeldung (z. B. falls Kosten höher als Brutto-Ertrag sind) -->
+    <div id="statusBanner" class="hidden mt-5 rounded-2xl border px-4 py-3 text-sm flex items-start gap-3"></div>
+
+    <!-- Oberer KPI-Bereich (Zusammenfassungskarten) -->
+    <section aria-label="Ergebnis-Übersicht" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
+      <!-- KPI 1: Netto Sats / Tag -->
+      <div class="bg-cardbg border border-borderdim rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between text-xs font-medium text-slate-400">
+          <span>Netto / Tag (Sats &amp; BTC)</span>
+          <span class="px-2 py-0.5 rounded-md bg-btc/10 text-btc">Täglich</span>
+        </div>
+        <div id="kpiNetSatsDay" class="text-2xl sm:text-3xl font-bold text-white mt-2 tabular-nums">
+          528 Sats
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2 tabular-nums">
+          <span id="kpiNetBtcDay">0.00000528 BTC</span>
+          <span id="kpiNetUsdDay" class="text-emeraldacc font-medium">$0.32 / Tag</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Netto / Monat (30 Tage) in CHF & USD -->
+      <div class="bg-cardbg border border-borderdim rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between text-xs font-medium text-slate-400">
+          <span>Netto / Monat (30 Tage)</span>
+          <span class="px-2 py-0.5 rounded-md bg-emeraldacc/10 text-emeraldacc">Monatlich</span>
+        </div>
+        <div id="kpiNetChfMonth" class="text-2xl sm:text-3xl font-bold text-emeraldacc mt-2 tabular-nums">
+          CHF 17.00
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2 tabular-nums">
+          <span id="kpiNetUsdMonth">$19.20 / Monat</span>
+          <span id="kpiNetSatsMonth">15,840 Sats</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Brutto vs. Gesamtkosten -->
+      <div class="bg-cardbg border border-borderdim rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between text-xs font-medium text-slate-400">
+          <span>Kostenanteil (Strom + Service)</span>
+          <span id="kpiCostShareBadge" class="px-2 py-0.5 rounded-md bg-roseacc/10 text-roseacc tabular-nums">79.5%</span>
+        </div>
+        <div id="kpiCostUsdDay" class="text-2xl sm:text-3xl font-bold text-white mt-2 tabular-nums">
+          $1.23 / Tag
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400 mt-2 tabular-nums">
+          <span id="kpiCostSatsDay">-2,042 Sats</span>
+          <span id="kpiGrossSatsDay" class="text-slate-300">Brutto: 2,570 Sats</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Benötigte TH für Ziel-Einkommen in CHF/Monat -->
+      <div class="bg-cardbg border border-borderdim rounded-2xl p-5 shadow-sm">
+        <div class="flex items-center justify-between gap-2 text-xs font-medium text-slate-400">
+          <label for="targetChfInput" class="truncate">TH für Monatsziel</label>
+          <div class="flex items-center gap-1 bg-slatebg border border-borderdim rounded-lg px-2 py-0.5">
+            <span class="text-slate-400">CHF</span>
+            <input
+              id="targetChfInput"
+              type="number"
+              min="0"
+              max="500000"
+              step="50"
+              value="4000"
+              class="w-20 bg-transparent text-right text-white font-semibold focus:outline-none tabular-nums"
+            />
+          </div>
+        </div>
+        <div id="kpiNeededTh" class="text-2xl sm:text-3xl font-bold text-skyacc mt-2 tabular-nums">
+          — TH
+        </div>
+        <div id="kpiNeededThSub" class="text-xs text-slate-400 mt-2 tabular-nums">
+          Bei aktuellen Regler-Werten
+        </div>
+      </div>
+    </section>
+
+    <!-- Hauptbereich: Links Regler & Eingaben, Rechts interaktiver Chart & Detail-Aufschlüsselung -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+
+      <!-- Linke Spalte: Regler & Parameter (5 von 12 Spalten auf Desktop) -->
+      <section aria-label="Parameter und Regler" class="lg:col-span-5 space-y-5">
+        <div class="bg-cardbg border border-borderdim rounded-2xl p-5 sm:p-6 space-y-6">
+          <div class="flex items-center justify-between border-b border-borderdim pb-3">
+            <h2 class="text-base font-semibold text-white">Parameter anpassen</h2>
+            <span class="text-xs text-slate-400">Live-Berechnung</span>
+          </div>
+
+          <!-- 1. Hashrate (TH) -->
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between gap-3">
+              <label for="hashrateRange" class="text-sm font-medium text-slate-200">
+                Hashrate (Leistung)
+              </label>
+              <div class="flex items-center bg-slatebg border border-borderdim rounded-xl px-3 py-1.5 focus-within:border-btc">
+                <input
+                  id="hashrateInput"
+                  type="number"
+                  min="0"
+                  max="1000000"
+                  step="any"
+                  value="55.48"
+                  class="w-24 bg-transparent text-right text-sm font-semibold text-white focus:outline-none tabular-nums"
+                />
+                <span class="ml-1.5 text-xs font-medium text-slate-400">TH</span>
+              </div>
+            </div>
+            <input
+              id="hashrateRange"
+              type="range"
+              min="0"
+              max="30000"
+              step="1"
+              value="55.48"
+              class="mining-slider"
+            />
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <button type="button" data-preset-th="0" class="preset-btn">0 TH</button>
+              <button type="button" data-preset-th="55.48" class="preset-btn">55.48 TH (Basis)</button>
+              <button type="button" data-preset-th="500" class="preset-btn">500 TH</button>
+              <button type="button" data-preset-th="3200" class="preset-btn">3,200 TH</button>
+              <button type="button" data-preset-th="26000" class="preset-btn">26,000 TH</button>
+            </div>
+          </div>
+
+          <!-- 2. Effizienz (W/TH) -->
+          <div class="space-y-2.5 pt-2 border-t border-borderdim/60">
+            <div class="flex items-center justify-between gap-3">
+              <label for="efficiencyRange" class="text-sm font-medium text-slate-200">
+                Energieeffizienz
+              </label>
+              <div class="flex items-center bg-slatebg border border-borderdim rounded-xl px-3 py-1.5 focus-within:border-btc">
+                <input
+                  id="efficiencyInput"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="any"
+                  value="12"
+                  class="w-20 bg-transparent text-right text-sm font-semibold text-white focus:outline-none tabular-nums"
+                />
+                <span class="ml-1.5 text-xs font-medium text-slate-400">W/TH</span>
+              </div>
+            </div>
+            <input
+              id="efficiencyRange"
+              type="range"
+              min="0"
+              max="35"
+              step="0.5"
+              value="12"
+              class="mining-slider"
+            />
+            <div class="flex justify-between text-xs text-slate-400 tabular-nums">
+              <span>0 W/TH</span>
+              <span>12 W/TH (Basis)</span>
+              <span>35 W/TH</span>
+            </div>
+          </div>
+
+          <!-- 3. Wartungsrabatt (%) -->
+          <div class="space-y-2.5 pt-2 border-t border-borderdim/60">
+            <div class="flex items-center justify-between gap-3">
+              <label for="discountRange" class="text-sm font-medium text-slate-200">
+                Wartungsrabatt
+              </label>
+              <div class="flex items-center bg-slatebg border border-borderdim rounded-xl px-3 py-1.5 focus-within:border-btc">
+                <input
+                  id="discountInput"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="any"
+                  value="3.9"
+                  class="w-20 bg-transparent text-right text-sm font-semibold text-white focus:outline-none tabular-nums"
+                />
+                <span class="ml-1.5 text-xs font-medium text-slate-400">%</span>
+              </div>
+            </div>
+            <input
+              id="discountRange"
+              type="range"
+              min="0"
+              max="20"
+              step="0.1"
+              value="3.9"
+              class="mining-slider"
+            />
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <button type="button" data-preset-disc="0" class="preset-btn">0%</button>
+              <button type="button" data-preset-disc="3.9" class="preset-btn">3.9% (Basis)</button>
+              <button type="button" data-preset-disc="13" class="preset-btn">13% Rabatt</button>
+              <button type="button" data-preset-disc="20" class="preset-btn">20% Rabatt</button>
+            </div>
+          </div>
+
+          <!-- 4. BTC-Kurs (USD) -->
+          <div class="space-y-2.5 pt-2 border-t border-borderdim/60">
+            <div class="flex items-center justify-between gap-3">
+              <label for="btcPriceRange" class="text-sm font-medium text-slate-200">
+                Bitcoin-Kurs (USD)
+              </label>
+              <div class="flex items-center bg-slatebg border border-borderdim rounded-xl px-3 py-1.5 focus-within:border-btc">
+                <span class="mr-1.5 text-xs font-medium text-slate-400">$</span>
+                <input
+                  id="btcPriceInput"
+                  type="number"
+                  min="0"
+                  max="10000000"
+                  step="any"
+                  value="60606"
+                  class="w-24 bg-transparent text-right text-sm font-semibold text-white focus:outline-none tabular-nums"
+                />
+              </div>
+            </div>
+            <input
+              id="btcPriceRange"
+              type="range"
+              min="0"
+              max="250000"
+              step="250"
+              value="60606"
+              class="mining-slider"
+            />
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <button type="button" id="fetchLiveBtcBtn" class="preset-btn flex items-center gap-1 border-btc/40 text-btc hover:border-btc">
+                <span class="w-1.5 h-1.5 rounded-full bg-emeraldacc animate-pulse"></span>
+                <span>⚡ Live-Kurs</span>
+              </button>
+              <button type="button" data-preset-btc="60606" class="preset-btn">~$60.6k (Basis)</button>
+              <button type="button" data-preset-btc="100000" class="preset-btn">$100k</button>
+              <button type="button" data-preset-btc="150000" class="preset-btn">$150k</button>
+            </div>
+          </div>
+
+          <!-- 5. Netzwerk-Difficulty Veränderung (%) -->
+          <div class="space-y-2.5 pt-2 border-t border-borderdim/60">
+            <div class="flex items-center justify-between gap-3">
+              <label for="diffRange" class="text-sm font-medium text-slate-200">
+                Difficulty-Veränderung
+              </label>
+              <div class="flex items-center bg-slatebg border border-borderdim rounded-xl px-3 py-1.5 focus-within:border-btc">
+                <input
+                  id="diffInput"
+                  type="number"
+                  min="-100"
+                  max="1000"
+                  step="any"
+                  value="0"
+                  class="w-20 bg-transparent text-right text-sm font-semibold text-white focus:outline-none tabular-nums"
+                />
+                <span class="ml-1.5 text-xs font-medium text-slate-400">%</span>
+              </div>
+            </div>
+            <input
+              id="diffRange"
+              type="range"
+              min="-100"
+              max="100"
+              step="1"
+              value="0"
+              class="mining-slider"
+            />
+            <div class="flex justify-between text-xs text-slate-400 tabular-nums">
+              <span>-100%</span>
+              <span>0% (Aktuell)</span>
+              <span>+50%</span>
+              <span>+100%</span>
+            </div>
+          </div>
+
+          <!-- 6. Wechselkurs USD/CHF -->
+          <div class="space-y-2.5 pt-2 border-t border-borderdim/60">
+            <div class="flex items-center justify-between gap-3">
+              <label for="usdChfRange" class="text-sm font-medium text-slate-200">
+                Wechselkurs USD / CHF
+              </label>
+              <div class="flex items-center bg-slatebg border border-borderdim rounded-xl px-3 py-1.5 focus-within:border-btc">
+                <input
+                  id="usdChfInput"
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="any"
+                  value="0.885"
+                  class="w-20 bg-transparent text-right text-sm font-semibold text-white focus:outline-none tabular-nums"
+                />
+                <span class="ml-1.5 text-xs font-medium text-slate-400">CHF</span>
+              </div>
+            </div>
+            <input
+              id="usdChfRange"
+              type="range"
+              min="0"
+              max="1.5"
+              step="0.005"
+              value="0.885"
+              class="mining-slider"
+            />
+            <div class="flex justify-between text-xs text-slate-400 tabular-nums">
+              <span>0.00</span>
+              <span>0.885 (Basis)</span>
+              <span>1.50</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Rechte Spalte: Dynamischer Chart & Detail-Aufschlüsselung (7 von 12 Spalten auf Desktop) -->
+      <section aria-label="Kurs-Chart und Detailberechnung" class="lg:col-span-7 space-y-5">
+
+        <!-- Chart-Karte -->
+        <div class="bg-cardbg border border-borderdim rounded-2xl p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-borderdim/60">
+            <!-- Tabs: Ertrags-Simulator vs. Live BTC-Chart -->
+            <div class="inline-flex p-1 rounded-xl bg-slatebg border border-borderdim">
+              <button
+                id="tabSimChart"
+                type="button"
+                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer bg-cardbg text-white shadow-sm"
+              >
+                📈 Ertrags-Simulator
+              </button>
+              <button
+                id="tabLiveChart"
+                type="button"
+                class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+              >
+                <span class="w-2 h-2 rounded-full bg-emeraldacc animate-pulse"></span>
+                <span>Live BTC-Chart</span>
+              </button>
+            </div>
+
+            <!-- Status / Countdown / Marker Label -->
+            <div class="flex items-center gap-2">
+              <div id="chartActiveMarkerLabel" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slatebg border border-borderdim text-xs font-medium text-btc tabular-nums">
+                <span>Aktiver BTC-Kurs: $60,606</span>
+              </div>
+              <button
+                id="refreshLiveBtcBtn"
+                type="button"
+                title="Jetzt aktualisieren"
+                class="hidden px-2.5 py-1.5 rounded-xl bg-slatebg hover:bg-cardhover border border-borderdim text-slate-300 hover:text-white transition cursor-pointer text-xs flex items-center gap-1"
+              >
+                <span>🔄</span>
+                <span class="hidden sm:inline">Aktualisieren</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live BTC Toolbar (nur aktiv wenn Live BTC Chart gewählt ist) -->
+          <div id="liveBtcToolbar" class="hidden flex flex-wrap items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl bg-slatebg/70 border border-borderdim/70 text-xs">
+            <div class="flex items-center gap-2 tabular-nums">
+              <span class="text-slate-400">Aktueller Kurs:</span>
+              <span id="liveBtcPriceDisplay" class="font-bold text-base text-btc">Lädt...</span>
+              <span id="liveBtcSourceBadge" class="px-1.5 py-0.5 rounded bg-borderdim text-[10px] text-slate-400">Binance</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="liveBtcCountdown" class="text-slate-400 tabular-nums">Update in 60s</span>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer text-slate-300 hover:text-white select-none">
+                <input id="syncLivePriceCheck" type="checkbox" checked class="rounded border-borderdim bg-cardbg text-btc focus:ring-btc" />
+                <span>In Rechner übernehmen</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Responsive Chart-Container -->
+          <div class="relative h-72 sm:h-80 w-full">
+            <canvas id="miningChartCanvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Detaillierte Aufschlüsselung (Tages- & Monatswerte) -->
+        <div class="bg-cardbg border border-borderdim rounded-2xl p-5 sm:p-6">
+          <h3 class="text-base font-semibold text-white mb-4">
+            Detaillierte Aufschlüsselung
+          </h3>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-sm tabular-nums">
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Brutto-Pool-Belohnung</span>
+              <span id="detailGrossSats" class="font-semibold text-white">2,570 Sats</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Brutto in USD / Tag</span>
+              <span id="detailGrossUsd" class="font-semibold text-slate-200">$1.56</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Stromkosten / Tag</span>
+              <span id="detailElecUsd" class="font-semibold text-roseacc">-$0.76</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Servicekosten / Tag</span>
+              <span id="detailServiceUsd" class="font-semibold text-roseacc">-$0.47</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Abzüge in Sats / Tag</span>
+              <span id="detailFeesSats" class="font-semibold text-roseacc">-2,042 Sats</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Netto-Marge vom Brutto</span>
+              <span id="detailNetMarginPct" class="font-semibold text-emeraldacc">20.5%</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Netto in CHF / Tag</span>
+              <span id="detailNetChfDay" class="font-semibold text-emeraldacc">CHF 0.29</span>
+            </div>
+
+            <div class="flex items-center justify-between p-3.5 rounded-xl bg-slatebg border border-borderdim/70">
+              <span class="text-slate-400">Netto in CHF / Monat (30 Tage)</span>
+              <span id="detailNetChfMonth" class="font-semibold text-emeraldacc">CHF 8.70</span>
+            </div>
+          </div>
+
+          <!-- Hervorgehobener Netto-Ertrag (CHF) am Ende -->
+          <div class="mt-4 p-4 rounded-xl bg-slatebg border border-borderdim flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-300">Berechneter Netto-Ertrag (CHF)</div>
+              <div class="text-xs text-slate-500 mt-0.5">Unter Berücksichtigung aller Kosten &amp; USD/CHF-Wechselkurs</div>
+            </div>
+            <div class="flex items-baseline gap-4 tabular-nums">
+              <div class="text-right">
+                <span class="text-xs text-slate-400 block">Täglich</span>
+                <span id="summaryNetChfDay" class="text-lg sm:text-xl font-bold text-emeraldacc">CHF 0.29</span>
+              </div>
+              <div class="text-right border-l border-borderdim pl-4">
+                <span class="text-xs text-slate-400 block">Monatlich (30d)</span>
+                <span id="summaryNetChfMonth" class="text-xl sm:text-2xl font-bold text-emeraldacc">CHF 8.70</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="text-xs text-slate-400 mt-4 leading-relaxed">
+            Hinweis: Modellberechnung auf Basis deines Screenshots vom 23.11.2026 (55.48 TH, 12 W/TH, 3.9% Wartungsrabatt, ~2,570 Sats Brutto, ~$0.76 Strom &amp; ~$0.47 Service). Strom skaliert proportional mit Hashrate und Effizienz (W/TH ÷ 12), Service skaliert mit Hashrate; der Wartungsrabatt reduziert die verrechneten Wartungskosten relativ zur 3.9%-Basis, und eine Difficulty-Änderung skaliert die Brutto-Sats mit <code>1 / (1 + diff% / 100)</code>.
+          </p>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
